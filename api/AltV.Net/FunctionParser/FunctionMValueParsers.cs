@@ -776,12 +776,6 @@ namespace AltV.Net.FunctionParser
 
             return null;
         }
-
-        public static object ParseConvertible(ref MValue mValue, Type type, IBaseBaseObjectPool baseBaseObjectPool,
-            FunctionTypeInfo typeInfo)
-        {
-            return MValueAdapters.FromMValue(ref mValue, type, out var obj) ? obj : null;
-        }
     }
 
     internal delegate object FunctionMValueParser(ref MValue mValue, Type type, IBaseBaseObjectPool baseBaseObjectPool,

@@ -284,10 +284,5 @@ namespace AltV.Net.Data
         public void CheckIfEntityExists()
         {
         }
-
-        public void OnRemove()
-        {
-            throw new NotImplementedException();
-        }
     }
 }

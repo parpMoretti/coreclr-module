@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using AltV.Net.Elements.Entities;
 
 namespace AltV.Net.Example
@@ -11,8 +10,6 @@ namespace AltV.Net.Example
         private readonly Action<IPlayer, string> send;
 
         private readonly Action<string, Function> registerCmd;
-
-        private readonly LinkedList<Function> functions = new LinkedList<Function>();
 
         public Chat()
         {
@@ -31,11 +28,9 @@ namespace AltV.Net.Example
             send?.Invoke(player, message);
         }
 
-        public void RegisterCommand(string command, Action<IPlayer, string, string[]> callback)
+        public void RegisterCommand(string command, Action<IPlayer, string[]> callback)
         {
-            var function = Function.Create(callback);
-            functions.AddFirst(function);
-            registerCmd?.Invoke(command, function);
+            registerCmd?.Invoke(command, Function.Create(callback));
         }
     }
 }

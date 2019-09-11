@@ -1,20 +1,23 @@
 #include "CSharpScriptRuntime.h"
 
-CSharpScriptRuntime::CSharpScriptRuntime(alt::ICore* core) {
-    this->core = core;
-    this->coreClr = new CoreClr(core);
-    this->coreClr->CreateManagedHost();
+CSharpScriptRuntime::CSharpScriptRuntime(alt::IServer* server)
+{
+    this->server = server;
+    this->coreClr = new CoreClr(server);
 }
 
-alt::IResource::Impl* CSharpScriptRuntime::CreateImpl(alt::IResource* resource) {
-    return new CSharpResourceImpl(this->core, this->coreClr, resource);
+alt::IResource *CSharpScriptRuntime::CreateResource(alt::IResource::CreationInfo* info)
+{
+    auto *cSharpResource = new CSharpResource(this->server, this->coreClr, info);
+    return cSharpResource;
 }
 
-void CSharpScriptRuntime::DestroyImpl(alt::IResource::Impl* impl) {
-    this->coreClr->Shutdown(this->core, ((CSharpResourceImpl*) impl)->runtimeHost,
-                            ((CSharpResourceImpl*) impl)->domainId);
-    delete impl;
+void CSharpScriptRuntime::RemoveResource(alt::IResource *resource)
+{
+    this->coreClr->Shutdown(this->server, ((CSharpResource*)resource)->runtimeHost, ((CSharpResource*)resource)->domainId);   
+    delete resource;
 }
 
-void CSharpScriptRuntime::OnTick() {
+void CSharpScriptRuntime::OnTick()
+{
 }
