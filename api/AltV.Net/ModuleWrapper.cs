@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using AltV.Net.Elements.Args;
 using AltV.Net.Elements.Entities;
 using AltV.Net.Native;
+using AltV.Net.ResourceLoaders;
 
 [assembly: RuntimeCompatibility(WrapNonExceptionThrows = true)]
 [assembly: InternalsVisibleTo("AltV.Net.Mock")]
@@ -15,14 +17,41 @@ namespace AltV.Net
 
         private static IResource _resource;
 
+        private static IScript[] _scripts;
+
         public static void Main(IntPtr serverPointer, IntPtr resourcePointer, string resourceName, string entryPoint)
         {
+            var assemblyLoader = new AssemblyLoader();
             MainWithResource(serverPointer, resourcePointer,
-                new ResourceLoader(serverPointer, resourceName, entryPoint).Init());
+                new ResourceLoader(serverPointer, assemblyLoader, resourceName, entryPoint).Init(),
+                AssemblyLoadContext.Default);
+            _scripts = new ScriptLoader(assemblyLoader).GetAllScripts();
+            _module.OnScriptsLoaded(_scripts);
             _resource.OnStart();
         }
 
-        public static void MainWithResource(IntPtr serverPointer, IntPtr resourcePointer, IResource resource)
+        private static void OnStartResource(IntPtr serverPointer, IntPtr resourcePointer, string resourceName,
+            string entryPoint)
+        {
+            _resource.OnStart();
+        }
+
+        public static void MainWithAssembly(IntPtr serverPointer, IntPtr resourcePointer,
+            AssemblyLoadContext assemblyLoadContext)
+        {
+            if (!AssemblyLoader.FindType(assemblyLoadContext.Assemblies, out IResource resource))
+            {
+                return;
+            }
+
+            MainWithResource(serverPointer, resourcePointer, resource, assemblyLoadContext);
+            _scripts = AssemblyLoader.FindAllTypes<IScript>(assemblyLoadContext.Assemblies);
+            _module.OnScriptsLoaded(_scripts);
+            Alt.Server.Resource.CSharpResourceImpl.SetDelegates(OnStartResource);
+        }
+
+        public static void MainWithResource(IntPtr serverPointer, IntPtr resourcePointer, IResource resource,
+            AssemblyLoadContext assemblyLoadContext)
         {
             _resource = resource;
             if (_resource == null)
@@ -44,18 +73,25 @@ namespace AltV.Net
             var colShapePool = _resource.GetColShapePool(colShapeFactory);
             var entityPool = _resource.GetBaseEntityPool(playerPool, vehiclePool);
             var baseObjectPool =
-                _resource.GetBaseBaseObjectPool(playerPool, vehiclePool, blipPool, checkpointPool, voiceChannelPool, colShapePool);
-            var server = new Server(serverPointer, baseObjectPool, entityPool, playerPool, vehiclePool, blipPool,
+                _resource.GetBaseBaseObjectPool(playerPool, vehiclePool, blipPool, checkpointPool, voiceChannelPool,
+                    colShapePool);
+            var csharpResource = new NativeResource(resourcePointer);
+            var server = new Server(serverPointer, csharpResource, baseObjectPool, entityPool, playerPool, vehiclePool,
+                blipPool,
                 checkpointPool, voiceChannelPool, colShapePool);
-            var csharpResource = new CSharpNativeResource(resourcePointer);
-            _module = _resource.GetModule(server, csharpResource, baseObjectPool, entityPool, playerPool, vehiclePool,
+            _module = _resource.GetModule(server, assemblyLoadContext, csharpResource, baseObjectPool, entityPool,
+                playerPool, vehiclePool,
                 blipPool, checkpointPool, voiceChannelPool, colShapePool);
-            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies)
+
+            foreach (var unused in server.GetPlayers())
             {
-                Alt.Log("Loaded:" + assembly.GetName());
             }
+
+            foreach (var unused in server.GetVehicles())
+            {
+            }
+
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         }
 
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -160,7 +196,7 @@ namespace AltV.Net
         {
             _module.OnCreateVoiceChannel(channelPointer);
         }
-        
+
         public static void OnCreateColShape(IntPtr colShapePointer)
         {
             _module.OnCreateColShape(colShapePointer);
@@ -185,7 +221,7 @@ namespace AltV.Net
         {
             _module.OnRemoveVoiceChannel(channelPointer);
         }
-        
+
         public static void OnRemoveColShape(IntPtr colShapePointer)
         {
             _module.OnRemoveColShape(colShapePointer);
@@ -205,18 +241,21 @@ namespace AltV.Net
         {
             _module.OnConsoleCommand(name, ref args);
         }
-        
-        public static void OnMetaDataChange(IntPtr entityPointer, BaseObjectType entityType, string key, ref MValue value)
+
+        public static void OnMetaDataChange(IntPtr entityPointer, BaseObjectType entityType, string key,
+            ref MValue value)
         {
             _module.OnMetaDataChange(entityPointer, entityType, key, ref value);
         }
-        
-        public static void OnSyncedMetaDataChange(IntPtr entityPointer, BaseObjectType entityType, string key, ref MValue value)
+
+        public static void OnSyncedMetaDataChange(IntPtr entityPointer, BaseObjectType entityType, string key,
+            ref MValue value)
         {
             _module.OnSyncedMetaDataChange(entityPointer, entityType, key, ref value);
         }
 
-        public static void OnColShape(IntPtr colShapePointer, IntPtr targetEntityPointer, BaseObjectType entityType, bool state)
+        public static void OnColShape(IntPtr colShapePointer, IntPtr targetEntityPointer, BaseObjectType entityType,
+            bool state)
         {
             _module.OnColShape(colShapePointer, targetEntityPointer, entityType, state);
         }

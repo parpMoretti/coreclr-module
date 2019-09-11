@@ -1,13 +1,14 @@
 import playerPosition from "./player-position.js"
 import proto from "./proto.js"
 import streamingWorker from "./streaming-worker.mjs";
+import clientRepository from "./client-repository.js";
 
 export default class EntityRepository {
     constructor(websocket) {
         this.websocket = websocket;
         // entity-id, entity
         this.entities = new Map();
-        this.streamedInEntities = new Set();
+        this.streamedInEntities = new Map();
         const workerBlob = new Blob([streamingWorker], {type: 'application/javascript'});
         this.streamingWorker = new Worker(window.URL.createObjectURL(workerBlob));
         playerPosition.update = (position) => {
@@ -21,29 +22,34 @@ export default class EntityRepository {
             if (streamIns !== undefined) {
                 const entities = [];
                 for (const streamIn of streamIns) {
-                    this.streamedInEntities.add(streamIn);
-                    websocket.sendEvent({streamIn: proto.EntityStreamInEvent.create({entityId: streamIn})});
                     if (!this.entities.has(streamIn)) {
                         console.log("entity " + streamIn + " not found");
-                        return;
+                        continue;
                     }
                     const entity = this.entities.get(streamIn);
+                    this.streamedInEntities.set(streamIn, entity);
+                    websocket.sendEvent({streamIn: proto.EntityStreamInEvent.create({entityId: streamIn})});
                     entities.push(entity);
                 }
-                alt.emit("streamIn", JSON.stringify(entities));
-            } else if (streamOuts !== undefined) {
+                if (entities.length > 0) {
+                    alt.emit("streamIn", JSON.stringify(entities));
+                }
+            }
+            if (streamOuts !== undefined) {
                 const entities = [];
                 for (const streamOut of streamOuts) {
-                    this.streamedInEntities.delete(streamOut);
                     websocket.sendEvent({streamOut: proto.EntityStreamOutEvent.create({entityId: streamOut})});
-                    if (!this.entities.has(streamOut)) {
+                    if (!this.streamedInEntities.has(streamOut)) {
                         console.log("entity " + streamOut + " not found");
-                        return;
+                        continue;
                     }
-                    const entity = this.entities.get(streamOut);
+                    const entity = this.streamedInEntities.get(streamOut);
                     entities.push(entity);
+                    this.streamedInEntities.delete(streamOut);
                 }
-                alt.emit("streamOut", JSON.stringify(entities));
+                if (entities.length > 0) {
+                    alt.emit("streamOut", JSON.stringify(entities));
+                }
             }
         };
     }
@@ -115,13 +121,14 @@ export default class EntityRepository {
     updateWorker() {
         this.streamingWorker.postMessage({
             position: playerPosition.getPosition(),
+            dimension: clientRepository.dimension,
             entities: this.copyEntitiesWithoutData()
-        })
+        });
     }
 
     resetWorker() {
         this.streamingWorker.postMessage({
             reset: true
-        })
+        });
     }
 }

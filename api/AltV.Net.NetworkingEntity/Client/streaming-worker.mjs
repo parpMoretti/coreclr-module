@@ -13,6 +13,12 @@ onmessage = function (e) {
             }
         }
     }
+    if (!this.dimension) {
+        this.dimension = 0;
+    }
+    //if (!this.entityAreas) {
+    //    this.entityAreas = new Map();
+    //}
     if (!this.streamedIn) {
         this.streamedIn = new Map();
     }
@@ -32,6 +38,9 @@ onmessage = function (e) {
     if (data.position) {
         this.position = data.position;
     }
+    if (data.dimension) {
+        this.dimension = data.dimension;
+    }
     if (data.entities) {
         // Fill entities in areas
         for (let i = 0; i < maxAreaIndex; i++) {
@@ -49,7 +58,7 @@ onmessage = function (e) {
     if (data.entityToRemove) {
         if (this.streamedIn.has(data.entityToRemove.id)) {
             this.streamedIn.delete(data.entityToRemove.id);
-            postMessage({streamOut: this.streamedIn.get(data.entityToRemove.id)});
+            postMessage({streamOut: [data.entityToRemove.id]});
         }
         removeEntityFromArea(data.entityToRemove);
     }
@@ -64,6 +73,14 @@ function addEntityToArea(entity) {
     for (let i = startingYIndex; i <= stoppingYIndex; i++) {
         for (let j = startingXIndex; j <= stoppingXIndex; j++) {
             this.areas[j][i].push(entity);
+            /*let entityAreasArr;
+            if (!this.entityAreas.has(entity.id)) {
+                entityAreasArr = [];
+                this.entityAreas.set(entity.id, entityAreasArr);
+            } else {
+                entityAreasArr = this.entityAreas.get(entity.id);
+            }
+            entityAreasArr.push([this.areas[j][i], this.areas[j][i].length - 1]);*/
         }
     }
 }
@@ -88,11 +105,26 @@ function calcStartStopIndex(entity) {
 }
 
 function removeEntityFromArea(entity) {
+    /*if (this.entityAreas.has(entity.id)) {
+        for (const [areaArr, index] of this.entityAreas.get(entity.id)) {
+            areaArr.splice(index, 1);
+            console.log("index to remove", index);
+            console.log("new arr", areaArr);
+            // Finds entities stored behind that and decrement the stored indexes by one
+            for (let i = index; i < areaArr.length; i++) {
+                if (this.entityAreas.has(areaArr[i].id)) {
+                    const [entityAreaArr, entityIndex] = this.entityAreas.get(areaArr[i].id);
+                    console.log("index to update", entityIndex);
+                    this.entityAreas.set(areaArr[i].id, [entityAreaArr, entityIndex - 1]);
+                }
+            }
+        }
+    }*/
     const [startingYIndex, startingXIndex, stoppingYIndex, stoppingXIndex] = calcStartStopIndex(entity);
     if (startingYIndex == null || startingXIndex == null || stoppingYIndex == null || stoppingXIndex == null) return;
     for (let i = startingYIndex; i <= stoppingYIndex; i++) {
         for (let j = startingXIndex; j <= stoppingXIndex; j++) {
-            this.areas[j][i].filter((arrEntity) => arrEntity.id !== entity.id)
+            this.areas[j][i] = this.areas[j][i].filter((arrEntity) => arrEntity.id !== entity.id);
         }
     }
 }
@@ -111,7 +143,7 @@ function offsetPosition(value) {
 
 function start(position) {
     for (const [id, entity] of this.streamedIn) {
-        if (distance(entity.position, position) > entity.range) {
+        if (distance(entity.position, position) > entity.range || !canSeeOtherDimension(this.dimension, entity.dimension)) {
             this.newStreamOut.add(entity.id);
         }
     }
@@ -137,7 +169,7 @@ function start(position) {
 
     for (let entity of entitiesInArea) {
         if (!this.streamedIn.has(entity.id)) {
-            if (distance(entity.position, position) <= entity.range) {
+            if (canSeeOtherDimension(this.dimension, entity.dimension) && distance(entity.position, position) <= entity.range) {
                 this.newStreamIn.add(entity.id);
                 this.streamedIn.set(entity.id, entity)
             }
@@ -148,4 +180,16 @@ function start(position) {
         postMessage({streamIn: [...this.newStreamIn]});
         this.newStreamIn.clear();
     }
+}
+
+/*
+X can see only X
+-X can see 0 and -X
+0 can't see -X and X
+ */
+function canSeeOtherDimension(dimension, otherDimension) {
+    if (dimension > 0) return dimension === otherDimension;
+    if (dimension < 0) return otherDimension === 0 || dimension === otherDimension;
+    if (dimension === 0) return otherDimension === 0;
+    return false;
 }

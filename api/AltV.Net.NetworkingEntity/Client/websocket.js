@@ -1,4 +1,5 @@
 import EntityRepository from "./entity-repository.js";
+import clientRepository from "./client-repository.js";
 import proto from "./proto.js";
 
 export default class WebSocket {
@@ -104,6 +105,10 @@ export default class WebSocket {
                     this.entityRepository.updateWorker();
                     //console.log("dimension changed", entity.id, entity.dimension);
                 }
+            } else if (obj.clientDimensionChange) {
+                const clientDimensionChange = obj.clientDimensionChange;
+                clientRepository.dimension = clientDimensionChange.dimension;
+                this.entityRepository.updateWorker();
             }
         };
     }
@@ -112,5 +117,9 @@ export default class WebSocket {
         const clientEvent = proto.ClientEvent.create(event);
         const buffer = proto.ClientEvent.encode(clientEvent).finish();
         this.connection.send(buffer);
+    }
+
+    deinit() {
+        this.connection.close();
     }
 }

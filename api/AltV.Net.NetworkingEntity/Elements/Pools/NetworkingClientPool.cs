@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using AltV.Net.NetworkingEntity.Elements.Entities;
 using AltV.Net.NetworkingEntity.Elements.Factories;
@@ -22,16 +21,16 @@ namespace AltV.Net.NetworkingEntity.Elements.Pools
             this.factory = factory;
         }
 
-        public INetworkingClient Create(string token)
+        public INetworkingClient Create(string token, IEntityStreamer entityStreamer)
         {
-            var entity = factory.Create(token);
+            var entity = factory.Create(token, entityStreamer);
             Add(entity);
             return entity;
         }
 
-        public INetworkingClient Create()
+        public INetworkingClient Create(IEntityStreamer entityStreamer)
         {
-            var entity = factory.Create(idProvider.GetNext());
+            var entity = factory.Create(idProvider.GetNext(), entityStreamer);
             Add(entity);
             return entity;
         }
@@ -103,9 +102,12 @@ namespace AltV.Net.NetworkingEntity.Elements.Pools
             {
                 foreach (var (_, value) in entities)
                 {
-                    if (value.Exists)
+                    lock (value)
                     {
-                        value.WebSocket?.SendAsync(bytes, true);
+                        if (value.Exists)
+                        {
+                            value.WebSocket?.SendAsync(bytes, true);
+                        }
                     }
                 }
             }

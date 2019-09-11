@@ -1,8 +1,6 @@
-using System;
 using AltV.Net.NetworkingEntity.Elements.Entities;
 using Entity;
 using Google.Protobuf;
-using net.vieapps.Components.Utility;
 
 namespace AltV.Net.NetworkingEntity
 {
@@ -17,13 +15,14 @@ namespace AltV.Net.NetworkingEntity
             {
                 return;
             }
+
             byte[] bytes;
             if (networkingEntity.StreamingType == StreamingType.DataStreaming)
             {
                 // Remove data before sending it over the wire
                 var entityWithoutData = networkingEntity.StreamedEntity.Clone();
                 entityWithoutData.Data.Clear();
-                
+
                 var entityCreateEvent = new EntityCreateEvent {Entity = entityWithoutData};
                 var serverEvent = new ServerEvent {Create = entityCreateEvent};
                 bytes = serverEvent.ToByteArray();
@@ -44,6 +43,7 @@ namespace AltV.Net.NetworkingEntity
             {
                 return;
             }
+
             var entityDeleteEvent = new EntityDeleteEvent {Id = networkingEntity.StreamedEntity.Id};
             var serverEvent = new ServerEvent {Delete = entityDeleteEvent};
             var bytes = serverEvent.ToByteArray();
@@ -60,9 +60,12 @@ namespace AltV.Net.NetworkingEntity
                 var bytes = serverEvent.ToByteArray();
                 foreach (var streamedInClient in entity.StreamedInClients)
                 {
-                    if (streamedInClient.Exists)
+                    lock (streamedInClient)
                     {
-                        streamedInClient.WebSocket?.SendAsync(bytes, true);
+                        if (streamedInClient.Exists)
+                        {
+                            streamedInClient.WebSocket?.SendAsync(bytes, true);
+                        }
                     }
                 }
             }
@@ -92,6 +95,20 @@ namespace AltV.Net.NetworkingEntity
             var serverEvent = new ServerEvent {DimensionChange = entityDimensionChangeEvent};
             var bytes = serverEvent.ToByteArray();
             AltNetworking.Module.ClientPool.SendToAll(bytes);
+        }
+
+        public void UpdateClientDimension(INetworkingClient networkingClient, int dimension)
+        {
+            var clientDimensionChangeEvent = new ClientDimensionChangeEvent {Dimension = dimension};
+            var serverEvent = new ServerEvent {ClientDimensionChange = clientDimensionChangeEvent};
+            var bytes = serverEvent.ToByteArray();
+            lock (networkingClient)
+            {
+                if (networkingClient.Exists)
+                {
+                    networkingClient.WebSocket?.SendAsync(bytes, true);
+                }
+            }
         }
     }
 }
