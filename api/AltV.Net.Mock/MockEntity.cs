@@ -142,9 +142,5 @@ namespace AltV.Net.Mock
 
             throw new EntityRemovedException(this);
         }
-
-        public void OnRemove()
-        {
-        }
     }
 }

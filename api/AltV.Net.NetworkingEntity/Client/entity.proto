@@ -88,10 +88,6 @@ message AuthEvent {
     string token = 1;
 }
 
-message ClientDimensionChangeEvent {
-    int64 dimension = 1;
-}
-
 message ServerEvent {
     oneof Event {
         EntityDataChangeEvent dataChange = 1;
@@ -102,7 +98,6 @@ message ServerEvent {
         EntityCreateEvent create = 6;
         EntityMultipleDataChangeEvent multipleDataChange = 7;
         EntityDimensionChangeEvent dimensionChange = 8;
-        ClientDimensionChangeEvent clientDimensionChange = 9;
     }
 }
 

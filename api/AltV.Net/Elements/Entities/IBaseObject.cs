@@ -40,8 +40,6 @@ namespace AltV.Net.Elements.Entities
         bool GetData<T>(string key, out T result);
 
         void CheckIfEntityExists();
-
-        void OnRemove();
     }
 
     public static class BaseObjectExtensions

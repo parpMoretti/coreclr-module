@@ -4,6 +4,7 @@ using AltV.Net.Elements.Args;
 
 namespace AltV.Net.Elements.Entities
 {
+    //TODO: implement all meta data implementation here and require a AltNative.Player.Player_SetSyncedMetaData(NativePointer, key, ref mValue); implementation for each entity
     public abstract class Entity : WorldObject, IEntity
     {
         public ushort Id { get; }

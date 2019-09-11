@@ -1,4 +1,3 @@
-using System.Runtime.Loader;
 using AltV.Net.Async.Elements.Pools;
 using AltV.Net.Elements.Entities;
 
@@ -43,25 +42,22 @@ namespace AltV.Net.Async
             return new AsyncBlipPool(blipFactory);
         }
 
-        public override IBaseObjectPool<ICheckpoint> GetCheckpointPool(
-            IBaseObjectFactory<ICheckpoint> checkpointFactory)
+        public override IBaseObjectPool<ICheckpoint> GetCheckpointPool(IBaseObjectFactory<ICheckpoint> checkpointFactory)
         {
             return new AsyncCheckpointPool(checkpointFactory);
         }
 
-        public override IBaseObjectPool<IVoiceChannel> GetVoiceChannelPool(
-            IBaseObjectFactory<IVoiceChannel> voiceChannelFactory)
+        public override IBaseObjectPool<IVoiceChannel> GetVoiceChannelPool(IBaseObjectFactory<IVoiceChannel> voiceChannelFactory)
         {
             return new AsyncVoiceChannelPool(voiceChannelFactory);
         }
-
+        
         public override IBaseObjectPool<IColShape> GetColShapePool(IBaseObjectFactory<IColShape> colShapeFactory)
         {
             return new AsyncColShapePool(colShapeFactory);
         }
 
-        public override Module GetModule(IServer server, AssemblyLoadContext assemblyLoadContext,
-            NativeResource cSharpNativeResource,
+        public override Module GetModule(IServer server, CSharpNativeResource cSharpNativeResource,
             IBaseBaseObjectPool baseBaseObjectPool,
             IBaseEntityPool baseEntityPool,
             IEntityPool<IPlayer> playerPool,
@@ -71,8 +67,7 @@ namespace AltV.Net.Async
             IBaseObjectPool<IVoiceChannel> voiceChannelPool,
             IBaseObjectPool<IColShape> colShapePool)
         {
-            return new AsyncModule(server, assemblyLoadContext, cSharpNativeResource, baseBaseObjectPool,
-                baseEntityPool, playerPool,
+            return new AsyncModule(server, cSharpNativeResource, baseBaseObjectPool, baseEntityPool, playerPool,
                 vehiclePool, blipPool, checkpointPool, voiceChannelPool, colShapePool);
         }
     }

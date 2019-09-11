@@ -83,12 +83,12 @@ namespace AltV.Net.NetworkingEntity
 
         public static INetworkingClient CreateClient()
         {
-            return Module.ClientPool.Create(Module.TokenProvider.GetNext(), Module.Streamer);
+            return Module.ClientPool.Create(Module.TokenProvider.GetNext());
         }
 
         public static INetworkingClient CreateClient(string token)
         {
-            return Module.ClientPool.Create(token, Module.Streamer);
+            return Module.ClientPool.Create(token);
         }
 
         public static void RemoveClient(INetworkingClient client)

@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.Loader;
 using AltV.Net.Elements.Entities;
 
 namespace AltV.Net.Mock
@@ -34,8 +33,8 @@ namespace AltV.Net.Mock
                 new MockBaseBaseObjectPool(playerPool, vehiclePool, blipPool, checkpointPool, voiceChannelPool, colShapePool);
             var server = new MockServer(IntPtr.Zero, baseObjectPool, entityPool, playerPool, vehiclePool, blipPool,
                 checkpointPool, voiceChannelPool);
-            var cSharpNativeResource = new NativeResource(IntPtr.Zero);
-            var module = resource.GetModule(server, AssemblyLoadContext.Default, cSharpNativeResource, baseObjectPool, entityPool, playerPool,
+            var cSharpNativeResource = new CSharpNativeResource(IntPtr.Zero);
+            var module = resource.GetModule(server, cSharpNativeResource, baseObjectPool, entityPool, playerPool,
                 vehiclePool, blipPool, checkpointPool, voiceChannelPool, colShapePool);
             resource.OnStart();
         }
@@ -44,7 +43,7 @@ namespace AltV.Net.Mock
         {
             var ptr = MockEntities.GetNextPtr(out var entityId);
             Alt.Module.PlayerPool.Create(ptr, entityId, out var player);
-            //player.Name = playerName;
+            player.Name = playerName;
             intercept?.Invoke(player);
             Alt.Module.OnPlayerConnect(ptr, player.Id, reason);
             return player;

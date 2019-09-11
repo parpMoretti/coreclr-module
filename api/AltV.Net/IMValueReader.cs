@@ -1,5 +1,3 @@
-using AltV.Net.Elements.Args;
-
 namespace AltV.Net
 {
     public interface IMValueReader
@@ -33,7 +31,5 @@ namespace AltV.Net
         string NextString();
 
         void SkipValue();
-
-        MValueReaderToken Peek();
     }
 }
