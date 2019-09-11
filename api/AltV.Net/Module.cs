@@ -1,6 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using AltV.Net.Elements.Args;
 using AltV.Net.Elements.Entities;
 using AltV.Net.Events;
@@ -13,7 +18,9 @@ namespace AltV.Net
     {
         internal readonly IServer Server;
 
-        internal readonly CSharpNativeResource CSharpNativeResource;
+        private readonly WeakReference<AssemblyLoadContext> assemblyLoadContext;
+
+        internal readonly NativeResource ModuleResource;
 
         internal readonly IBaseBaseObjectPool BaseBaseObjectPool;
 
@@ -30,6 +37,10 @@ namespace AltV.Net
         internal readonly IBaseObjectPool<IVoiceChannel> VoiceChannelPool;
 
         internal readonly IBaseObjectPool<IColShape> ColShapePool;
+
+        internal IEnumerable<Assembly> Assemblies => !assemblyLoadContext.TryGetTarget(out var target)
+            ? new List<Assembly>()
+            : target.Assemblies;
 
         //For custom defined args event handlers
         private readonly Dictionary<string, HashSet<Function>> eventHandlers =
@@ -102,7 +113,10 @@ namespace AltV.Net
         internal readonly IEventHandler<ColShapeDelegate> ColShapeEventHandler =
             new HashSetEventHandler<ColShapeDelegate>();
 
-        public Module(IServer server, CSharpNativeResource cSharpNativeResource, IBaseBaseObjectPool baseBaseObjectPool,
+        internal readonly IDictionary<string, Function> functionExports = new Dictionary<string, Function>();
+
+        public Module(IServer server, AssemblyLoadContext assemblyLoadContext,
+            NativeResource moduleResource, IBaseBaseObjectPool baseBaseObjectPool,
             IBaseEntityPool baseEntityPool, IEntityPool<IPlayer> playerPool,
             IEntityPool<IVehicle> vehiclePool,
             IBaseObjectPool<IBlip> blipPool,
@@ -112,7 +126,8 @@ namespace AltV.Net
         {
             Alt.Init(this);
             Server = server;
-            CSharpNativeResource = cSharpNativeResource;
+            this.assemblyLoadContext = new WeakReference<AssemblyLoadContext>(assemblyLoadContext);
+            ModuleResource = moduleResource;
             BaseBaseObjectPool = baseBaseObjectPool;
             BaseEntityPool = baseEntityPool;
             PlayerPool = playerPool;
@@ -121,6 +136,36 @@ namespace AltV.Net
             CheckpointPool = checkpointPool;
             VoiceChannelPool = voiceChannelPool;
             ColShapePool = colShapePool;
+        }
+
+        public Assembly LoadAssemblyFromName(AssemblyName assemblyName)
+        {
+            if (!assemblyLoadContext.TryGetTarget(out var target)) return null;
+            return target.LoadFromAssemblyName(assemblyName);
+        }
+
+        public Assembly LoadAssemblyFromStream(Stream stream)
+        {
+            if (!assemblyLoadContext.TryGetTarget(out var target)) return null;
+            return target.LoadFromStream(stream);
+        }
+
+        public Assembly LoadAssemblyFromStream(Stream stream, Stream assemblySymbols)
+        {
+            if (!assemblyLoadContext.TryGetTarget(out var target)) return null;
+            return target.LoadFromStream(stream, assemblySymbols);
+        }
+
+        public Assembly LoadAssemblyFromPath(string path)
+        {
+            if (!assemblyLoadContext.TryGetTarget(out var target)) return null;
+            return target.LoadFromAssemblyPath(path);
+        }
+
+        public Assembly LoadAssemblyFromNativeImagePath(string nativeImagePath, string assemblyPath)
+        {
+            if (!assemblyLoadContext.TryGetTarget(out var target)) return null;
+            return target.LoadFromNativeImagePath(nativeImagePath, assemblyPath);
         }
 
         public void On(string eventName, Function function)
@@ -134,6 +179,15 @@ namespace AltV.Net
             {
                 eventHandlersForEvent = new HashSet<Function> {function};
                 eventHandlers[eventName] = eventHandlersForEvent;
+            }
+        }
+
+        public void Off(string eventName, Function function)
+        {
+            if (function == null) return;
+            if (eventHandlers.TryGetValue(eventName, out var eventHandlersForEvent))
+            {
+                eventHandlersForEvent.Remove(function);
             }
         }
 
@@ -151,6 +205,15 @@ namespace AltV.Net
             }
         }
 
+        public void OffServer(string eventName, ServerEventDelegate serverEventDelegate)
+        {
+            if (serverEventDelegate == null) return;
+            if (eventDelegateHandlers.TryGetValue(eventName, out var eventHandlersForEvent))
+            {
+                eventHandlersForEvent.Remove(serverEventDelegate);
+            }
+        }
+
         public void OnClient(string eventName, ClientEventDelegate eventDelegate)
         {
             if (eventDelegate == null) return;
@@ -162,6 +225,15 @@ namespace AltV.Net
             {
                 eventHandlersForEvent = new HashSet<ClientEventDelegate> {eventDelegate};
                 clientEventDelegateHandlers[eventName] = eventHandlersForEvent;
+            }
+        }
+
+        public void OffClient(string eventName, ClientEventDelegate eventDelegate)
+        {
+            if (eventDelegate == null) return;
+            if (clientEventDelegateHandlers.TryGetValue(eventName, out var eventHandlersForEvent))
+            {
+                eventHandlersForEvent.Remove(eventDelegate);
             }
         }
 
@@ -180,6 +252,24 @@ namespace AltV.Net
             }
         }
 
+        public void Off<TFunc>(string eventName, TFunc func, ClientEventParser<TFunc> parser) where TFunc : Delegate
+        {
+            if (func == null || parser == null) return;
+            if (!parserClientEventHandlers.TryGetValue(eventName, out var eventHandlersForEvent)) return;
+            var parsersToDelete = new LinkedList<IParserClientEventHandler>();
+            var eventHandlerToFind = new ParserClientEventHandler<TFunc>(func, parser);
+            foreach (var eventHandler in eventHandlersForEvent.Where(eventHandler =>
+                eventHandler.Equals(eventHandlerToFind)))
+            {
+                parsersToDelete.AddFirst(eventHandler);
+            }
+
+            foreach (var parserToDelete in parsersToDelete)
+            {
+                eventHandlersForEvent.Remove(parserToDelete);
+            }
+        }
+
         public void On<TFunc>(string eventName, TFunc func, ServerEventParser<TFunc> parser) where TFunc : Delegate
         {
             if (func == null || parser == null) return;
@@ -192,6 +282,24 @@ namespace AltV.Net
                 eventHandlersForEvent = new HashSet<IParserServerEventHandler>
                     {new ParserServerEventHandler<TFunc>(func, parser)};
                 parserServerEventHandlers[eventName] = eventHandlersForEvent;
+            }
+        }
+
+        public void Off<TFunc>(string eventName, TFunc func, ServerEventParser<TFunc> parser) where TFunc : Delegate
+        {
+            if (func == null || parser == null) return;
+            if (!parserServerEventHandlers.TryGetValue(eventName, out var eventHandlersForEvent)) return;
+            var parsersToDelete = new LinkedList<IParserServerEventHandler>();
+            var eventHandlerToFind = new ParserServerEventHandler<TFunc>(func, parser);
+            foreach (var eventHandler in eventHandlersForEvent.Where(eventHandler =>
+                eventHandler.Equals(eventHandlerToFind)))
+            {
+                parsersToDelete.AddFirst(eventHandler);
+            }
+
+            foreach (var parserToDelete in parsersToDelete)
+            {
+                eventHandlersForEvent.Remove(parserToDelete);
             }
         }
 
@@ -740,6 +848,15 @@ namespace AltV.Net
 
         public virtual void OnScriptLoaded(IScript script)
         {
+        }
+
+        public void SetExport(string key, Function function)
+        {
+            if (function == null) return;
+            functionExports[key] = function;
+            MValue.Function callDelegate = function.call;
+            GCHandle.Alloc(callDelegate);
+            ModuleResource.SetExport(key, MValue.Create(callDelegate));
         }
     }
 }

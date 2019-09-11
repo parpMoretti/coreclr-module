@@ -78,14 +78,11 @@ namespace AltV.Net.Async
         {
             Create(entityPointer, GetId(entityPointer), out entity);
         }
-
-        //TODO: what should happen on failure
+        
         public void Add(TEntity entity)
         {
-            if (entities.TryAdd(entity.NativePointer, entity))
-            {
-                OnAdd(entity);
-            }
+            entities[entity.NativePointer] = entity;
+            OnAdd(entity);
         }
 
         public bool Remove(TEntity entity)

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp2.2</TargetFramework>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <Platforms>AnyCPU</Platforms>
         <RootNamespace>AltV.Net.Async</RootNamespace>
@@ -12,9 +12,9 @@
         <RepositoryUrl>https://github.com/altmp-csharp/docs</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>altv gta bridge</PackageTags>
-        <PackageVersion>1.12.0-beta</PackageVersion>
+        <PackageVersion>1.13.1</PackageVersion>
         <PackageLicenseFile>license.txt</PackageLicenseFile>
-        <PackageReleaseNotes>Add IScript for automatically loading scripts that contains Events and ScriptEvents</PackageReleaseNotes>
+        <PackageReleaseNotes>Fix multi async resources</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>

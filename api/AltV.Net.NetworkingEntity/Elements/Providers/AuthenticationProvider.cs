@@ -72,6 +72,7 @@ namespace AltV.Net.NetworkingEntity.Elements.Providers
                                 if (!client.Exists) continue;
                                 playerTokens[client.Token] = player;
                                 playerTokenAccess[player] = client.Token;
+                                player.SetNetworkingClient(client);
 
                                 lock (player)
                                 {
@@ -84,6 +85,7 @@ namespace AltV.Net.NetworkingEntity.Elements.Providers
                         }
                         else
                         {
+                            player.RemoveNetworkingClient();
                             if (playerTokenAccess.Remove(player, out var token))
                             {
                                 playerTokens.Remove(token);
@@ -118,7 +120,7 @@ namespace AltV.Net.NetworkingEntity.Elements.Providers
             out INetworkingClient client)
         {
             if (!networkingClientPool.TryGet(token, out client)) return Task.FromResult(false);
-            client.WebSocket = webSocket; //TODO: check if already has websocket ect.
+            //TODO: check if already has websocket ect. client.WebSocket
             webSocket.Extra[ClientExtra] = client;
             return Task.FromResult(true);
         }

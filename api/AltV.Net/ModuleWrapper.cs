@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using AltV.Net.Elements.Args;
 using AltV.Net.Elements.Entities;
 using AltV.Net.Native;
@@ -23,13 +23,35 @@ namespace AltV.Net
         {
             var assemblyLoader = new AssemblyLoader();
             MainWithResource(serverPointer, resourcePointer,
-                new ResourceLoader(serverPointer, assemblyLoader, resourceName, entryPoint).Init());
+                new ResourceLoader(serverPointer, assemblyLoader, resourceName, entryPoint).Init(),
+                AssemblyLoadContext.Default);
             _scripts = new ScriptLoader(assemblyLoader).GetAllScripts();
             _module.OnScriptsLoaded(_scripts);
             _resource.OnStart();
         }
 
-        public static void MainWithResource(IntPtr serverPointer, IntPtr resourcePointer, IResource resource)
+        private static void OnStartResource(IntPtr serverPointer, IntPtr resourcePointer, string resourceName,
+            string entryPoint)
+        {
+            _resource.OnStart();
+        }
+
+        public static void MainWithAssembly(IntPtr serverPointer, IntPtr resourcePointer,
+            AssemblyLoadContext assemblyLoadContext)
+        {
+            if (!AssemblyLoader.FindType(assemblyLoadContext.Assemblies, out IResource resource))
+            {
+                return;
+            }
+
+            MainWithResource(serverPointer, resourcePointer, resource, assemblyLoadContext);
+            _scripts = AssemblyLoader.FindAllTypes<IScript>(assemblyLoadContext.Assemblies);
+            _module.OnScriptsLoaded(_scripts);
+            Alt.Server.Resource.CSharpResourceImpl.SetDelegates(OnStartResource);
+        }
+
+        public static void MainWithResource(IntPtr serverPointer, IntPtr resourcePointer, IResource resource,
+            AssemblyLoadContext assemblyLoadContext)
         {
             _resource = resource;
             if (_resource == null)
@@ -53,17 +75,23 @@ namespace AltV.Net
             var baseObjectPool =
                 _resource.GetBaseBaseObjectPool(playerPool, vehiclePool, blipPool, checkpointPool, voiceChannelPool,
                     colShapePool);
-            var server = new Server(serverPointer, baseObjectPool, entityPool, playerPool, vehiclePool, blipPool,
+            var csharpResource = new NativeResource(resourcePointer);
+            var server = new Server(serverPointer, csharpResource, baseObjectPool, entityPool, playerPool, vehiclePool,
+                blipPool,
                 checkpointPool, voiceChannelPool, colShapePool);
-            var csharpResource = new CSharpNativeResource(resourcePointer);
-            _module = _resource.GetModule(server, csharpResource, baseObjectPool, entityPool, playerPool, vehiclePool,
+            _module = _resource.GetModule(server, assemblyLoadContext, csharpResource, baseObjectPool, entityPool,
+                playerPool, vehiclePool,
                 blipPool, checkpointPool, voiceChannelPool, colShapePool);
-            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies)
+
+            foreach (var unused in server.GetPlayers())
             {
-                Alt.Log("Loaded:" + assembly.GetName());
             }
+
+            foreach (var unused in server.GetVehicles())
+            {
+            }
+
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         }
 
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
